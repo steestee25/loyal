@@ -17,6 +17,12 @@ import com.app.loyal.barcode.BarcodeView
 import com.app.loyal.barcode.CardDetailScreen
 import com.app.loyal.barcode.Code128Encoder
 import com.app.loyal.barcode.Ean13Encoder
+import coil3.ImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.network.ktor3.KtorNetworkFetcherFactory
+import com.app.loyal.data.createHttpClient
+import com.app.loyal.data.BrandSearchApi
+
 sealed class Screen {
     data object List : Screen()
     data object AddCard : Screen()
@@ -27,10 +33,18 @@ sealed class Screen {
 fun App() {
     val repository = remember { InMemoryLoyaltyCardRepository() }
     val viewModel = remember { CardListViewModel(repository) }
+    val httpClient = remember { createHttpClient() }
+    val brandSearchApi = remember { BrandSearchApi(httpClient) }
+
     val scope = rememberCoroutineScope()
 
     var screen by remember { mutableStateOf<Screen>(Screen.List) }
 
+    setSingletonImageLoaderFactory { context ->
+        ImageLoader.Builder(context)
+            .components { add(KtorNetworkFetcherFactory()) }
+            .build()
+    }
     MaterialTheme {
         when (val current = screen) {
             is Screen.List -> CardListScreen(
@@ -39,6 +53,7 @@ fun App() {
                 onCardClick = { card -> screen = Screen.Detail(card) }
             )
             is Screen.AddCard -> AddEditCardScreen(
+                brandSearchApi = brandSearchApi,
                 onSave = { card ->
                     scope.launch { repository.add(card) }
                     screen = Screen.List
