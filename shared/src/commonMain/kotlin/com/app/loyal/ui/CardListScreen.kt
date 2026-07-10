@@ -20,13 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.app.loyal.model.LoyaltyCard
 import coil3.compose.AsyncImage
-import com.app.loyal.data.brandLogoUrl
 
 @Composable
 fun CardListScreen(
     viewModel: CardListViewModel,
     onAddClick: () -> Unit,
-    onCardClick: (LoyaltyCard) -> Unit
+    onCardClick: (LoyaltyCard) -> Unit,
+    onLogoutClick: () -> Unit
 ) {
     val cards by viewModel.cards.collectAsState()
 
@@ -38,6 +38,16 @@ fun CardListScreen(
         }
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(onClick = onLogoutClick) {
+                        Text("Logout")
+                    }
+                }
+            }
             items(cards) { card ->
                 Row(
                     modifier = Modifier

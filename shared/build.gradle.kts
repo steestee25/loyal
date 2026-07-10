@@ -51,6 +51,8 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.kscan)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -70,6 +72,8 @@ kotlin {
             implementation(libs.coil.network.ktor3)
             implementation(libs.ktor.client.contentNegotiation)
             implementation(libs.ktor.serialization.kotlinxJson)
+            implementation(libs.supabase.auth)
+            implementation(libs.supabase.postgrest)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -80,12 +84,15 @@ kotlin {
         }
         wasmJsMain.dependencies {
             implementation(libs.ktor.client.js)
+            implementation(libs.kscan)
         }
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.kscan)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.kscan)
         }
     }
 }

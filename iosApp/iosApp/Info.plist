@@ -4,5 +4,7 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>La fotocamera serve per scansionare il codice a barre o QR delle tessere fedeltà.</string>
 </dict>
 </plist>

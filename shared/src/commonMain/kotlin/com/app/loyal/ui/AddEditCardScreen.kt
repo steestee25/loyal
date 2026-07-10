@@ -19,6 +19,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.app.loyal.barcode.ScanCardView
 import com.app.loyal.data.BrandSearchApi
 import com.app.loyal.data.BrandSearchResult
 import com.app.loyal.model.BarcodeFormat
@@ -37,8 +38,22 @@ fun AddEditCardScreen(
     var brandName by remember { mutableStateOf("") }
     var domain by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
+    var format by remember { mutableStateOf<BarcodeFormat?>(null) }
+    var showScanner by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var logoUrl by remember { mutableStateOf<String?>(null) }
+
+    if (showScanner) {
+        ScanCardView(
+            onScanned = { scannedCode, scannedFormat ->
+                code = scannedCode
+                format = scannedFormat
+                showScanner = false
+            },
+            onCancel = { showScanner = false }
+        )
+        return
+    }
 
     Scaffold { padding ->
         Column(modifier = Modifier.fillMaxWidth().padding(padding).padding(16.dp)) {
@@ -72,26 +87,30 @@ fun AddEditCardScreen(
 
             Text("Selezionato: $brandName / $domain")
 
-            OutlinedTextField(
-                value = code,
-                onValueChange = { code = it },
-                label = { Text("Codice carta") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Button(onClick = {
-                onSave(
-                    LoyaltyCard(
-                        id = Clock.System.now().toEpochMilliseconds().toString(),
-                        brandName = brandName,
-                        domain = domain,
-                        code = code,
-                        format = BarcodeFormat.QR_CODE,
-                        colorArgb = 0xFF6200EE,
-                        createdAt = Clock.System.now(),
-                        logoUrl = logoUrl
+            Button(onClick = { showScanner = true }) {
+                Text("Scansiona tessera")
+            }
+            if (code.isNotBlank() && format != null) {
+                Text("Codice: $code (${format!!.name})")
+            }
+            Button(
+                onClick = {
+                    val scannedFormat = format ?: return@Button
+                    onSave(
+                        LoyaltyCard(
+                            id = Clock.System.now().toEpochMilliseconds().toString(),
+                            brandName = brandName,
+                            domain = domain,
+                            code = code,
+                            format = scannedFormat,
+                            colorArgb = 0xFF6200EE,
+                            createdAt = Clock.System.now(),
+                            logoUrl = logoUrl
+                        )
                     )
-                )
-            }) {
+                },
+                enabled = brandName.isNotBlank() && domain.isNotBlank() && code.isNotBlank() && format != null
+            ) {
                 Text("Salva")
             }
             Button(onClick = onCancel) {

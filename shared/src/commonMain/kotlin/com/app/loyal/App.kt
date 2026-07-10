@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.app.loyal.data.InMemoryLoyaltyCardRepository
+import com.app.loyal.data.SupabaseLoyaltyCardRepository
 import com.app.loyal.model.LoyaltyCard
 import com.app.loyal.ui.AddEditCardScreen
 import com.app.loyal.ui.CardListScreen
@@ -22,6 +22,12 @@ import coil3.compose.setSingletonImageLoaderFactory
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import com.app.loyal.data.createHttpClient
 import com.app.loyal.data.BrandSearchApi
+import com.app.loyal.data.createAppSupabaseClient
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import com.app.loyal.ui.AuthScreen
 
 sealed class Screen {
     data object List : Screen()
@@ -31,8 +37,9 @@ sealed class Screen {
 
 @Composable
 fun App() {
-    val repository = remember { InMemoryLoyaltyCardRepository() }
-    val viewModel = remember { CardListViewModel(repository) }
+    val supabase = remember { createAppSupabaseClient() }
+    val sessionStatus by supabase.auth.sessionStatus.collectAsState()
+
     val httpClient = remember { createHttpClient() }
     val brandSearchApi = remember { BrandSearchApi(httpClient) }
 
@@ -46,28 +53,44 @@ fun App() {
             .build()
     }
     MaterialTheme {
-        when (val current = screen) {
-            is Screen.List -> CardListScreen(
-                viewModel = viewModel,
-                onAddClick = { screen = Screen.AddCard },
-                onCardClick = { card -> screen = Screen.Detail(card) }
-            )
-            is Screen.AddCard -> AddEditCardScreen(
-                brandSearchApi = brandSearchApi,
-                onSave = { card ->
-                    scope.launch { repository.add(card) }
-                    screen = Screen.List
-                },
-                onCancel = { screen = Screen.List }
-            )
-            is Screen.Detail -> CardDetailScreen(
-                card = current.card,
-                onDelete = {
-                    viewModel.deleteCard(current.card.id)
-                    screen = Screen.List
-                },
-                onBack = { screen = Screen.List }
-            )
+        val status = sessionStatus
+        val userId = (status as? SessionStatus.Authenticated)?.session?.user?.id
+
+        if (userId != null) {
+            val repository = remember(userId) { SupabaseLoyaltyCardRepository(supabase, userId) }
+            val viewModel = remember(userId) { CardListViewModel(repository) }
+
+            LaunchedEffect(userId) { repository.refresh() }
+
+            when (val current = screen) {
+                is Screen.List -> CardListScreen(
+                    viewModel = viewModel,
+                    onAddClick = { screen = Screen.AddCard },
+                    onCardClick = { card -> screen = Screen.Detail(card) },
+                    onLogoutClick = {
+                        scope.launch { supabase.auth.signOut() }
+                        screen = Screen.List
+                    }
+                )
+                is Screen.AddCard -> AddEditCardScreen(
+                    brandSearchApi = brandSearchApi,
+                    onSave = { card ->
+                        scope.launch { repository.add(card) }
+                        screen = Screen.List
+                    },
+                    onCancel = { screen = Screen.List }
+                )
+                is Screen.Detail -> CardDetailScreen(
+                    card = current.card,
+                    onDelete = {
+                        viewModel.deleteCard(current.card.id)
+                        screen = Screen.List
+                    },
+                    onBack = { screen = Screen.List }
+                )
+            }
+        } else {
+            AuthScreen(supabase = supabase)
         }
     }
 }

@@ -18,7 +18,6 @@ import com.app.loyal.barcode.QrCodeView
 import com.app.loyal.model.BarcodeFormat
 import com.app.loyal.model.LoyaltyCard
 import coil3.compose.AsyncImage
-import com.app.loyal.data.brandLogoUrl
 
 @Composable
 fun CardDetailScreen(
