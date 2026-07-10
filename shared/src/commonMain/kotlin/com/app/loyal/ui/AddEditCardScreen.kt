@@ -31,17 +31,19 @@ import kotlin.time.Clock
 fun AddEditCardScreen(
     brandSearchApi: BrandSearchApi,
     onSave: (LoyaltyCard) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    initialCard: LoyaltyCard? = null
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(initialCard?.brandName ?: "") }
     var results by remember { mutableStateOf<List<BrandSearchResult>>(emptyList()) }
-    var brandName by remember { mutableStateOf("") }
-    var domain by remember { mutableStateOf("") }
-    var code by remember { mutableStateOf("") }
-    var format by remember { mutableStateOf<BarcodeFormat?>(null) }
+    var brandName by remember { mutableStateOf(initialCard?.brandName ?: "") }
+    var domain by remember { mutableStateOf(initialCard?.domain ?: "") }
+    var code by remember { mutableStateOf(initialCard?.code ?: "") }
+    var format by remember { mutableStateOf(initialCard?.format) }
     var showScanner by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    var logoUrl by remember { mutableStateOf<String?>(null) }
+    var logoUrl by remember { mutableStateOf(initialCard?.logoUrl) }
+    var colorArgb by remember { mutableStateOf(initialCard?.colorArgb ?: 0xFF6200EEL) }
 
     if (showScanner) {
         ScanCardView(
@@ -78,6 +80,11 @@ fun AddEditCardScreen(
                             logoUrl = result.icon
                             results = emptyList()
                             query = result.name ?: result.domain
+                            result.icon?.let { icon ->
+                                scope.launch {
+                                    brandSearchApi.logoColorArgb(icon)?.let { colorArgb = it }
+                                }
+                            }
                         }.padding(8.dp)
                     ) {
                         Text("${result.name ?: result.domain} (${result.domain})")
@@ -98,13 +105,14 @@ fun AddEditCardScreen(
                     val scannedFormat = format ?: return@Button
                     onSave(
                         LoyaltyCard(
-                            id = Clock.System.now().toEpochMilliseconds().toString(),
+                            id = initialCard?.id ?: Clock.System.now().toEpochMilliseconds().toString(),
                             brandName = brandName,
                             domain = domain,
                             code = code,
                             format = scannedFormat,
-                            colorArgb = 0xFF6200EE,
-                            createdAt = Clock.System.now(),
+                            colorArgb = colorArgb,
+                            note = initialCard?.note,
+                            createdAt = initialCard?.createdAt ?: Clock.System.now(),
                             logoUrl = logoUrl
                         )
                     )

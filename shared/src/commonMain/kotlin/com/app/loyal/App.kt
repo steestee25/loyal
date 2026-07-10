@@ -32,6 +32,7 @@ import com.app.loyal.ui.AuthScreen
 sealed class Screen {
     data object List : Screen()
     data object AddCard : Screen()
+    data class EditCard(val card: LoyaltyCard) : Screen()
     data class Detail(val card: LoyaltyCard) : Screen()
 }
 
@@ -80,8 +81,18 @@ fun App() {
                     },
                     onCancel = { screen = Screen.List }
                 )
+                is Screen.EditCard -> AddEditCardScreen(
+                    brandSearchApi = brandSearchApi,
+                    initialCard = current.card,
+                    onSave = { card ->
+                        scope.launch { repository.update(card) }
+                        screen = Screen.List
+                    },
+                    onCancel = { screen = Screen.Detail(current.card) }
+                )
                 is Screen.Detail -> CardDetailScreen(
                     card = current.card,
+                    onEdit = { screen = Screen.EditCard(current.card) },
                     onDelete = {
                         viewModel.deleteCard(current.card.id)
                         screen = Screen.List
