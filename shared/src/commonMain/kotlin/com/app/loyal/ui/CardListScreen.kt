@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -35,9 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.dp
 import com.app.loyal.model.LoyaltyCard
 import coil3.compose.AsyncImage
@@ -57,20 +59,26 @@ fun CardListScreen(
     Scaffold { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (selectedTab) {
-                Tab.Home -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 100.dp)
-                ) {
-                    item {
-                        Button(
-                            onClick = onAddClick,
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text("Aggiungi carta")
+                Tab.Home -> Column(modifier = Modifier.fillMaxSize()) {
+                    // Header: lente di ricerca in alto a destra
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        CircleIconButton(onClick = { /* TODO: ricerca */ }) {
+                            SearchIcon(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(10.dp).size(20.dp)
+                            )
                         }
                     }
-                    items(cards) { card ->
-                        LoyaltyCardItem(card = card, onClick = { onCardClick(card) })
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 100.dp)
+                    ) {
+                        items(cards) { card ->
+                            LoyaltyCardItem(card = card, onClick = { onCardClick(card) })
+                        }
                     }
                 }
 
@@ -83,7 +91,7 @@ fun CardListScreen(
             FloatingNavBar(
                 selectedTab = selectedTab,
                 onTabSelected = { selectedTab = it },
-                onSearchClick = {},
+                onAddClick = onAddClick,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 24.dp)
@@ -101,7 +109,7 @@ private fun LoyaltyCardItem(
     // Colori scuri/saturi (bassa luminosità) risultano troppo marcati:
     // li rendiamo più tenui abbassando l'alpha, mentre i colori chiari restano pieni.
     val baseColor = Color(card.colorArgb)
-    val borderAlpha = (0.15f + 1.6f * baseColor.luminance()).coerceIn(0.15f, 1f)
+    val borderAlpha = (0.10f + 1.6f * baseColor.luminance()).coerceIn(0.10f, 1f)
     val borderColor = baseColor.copy(alpha = borderAlpha)
 
     Card(
@@ -135,7 +143,7 @@ private fun LoyaltyCardItem(
 private fun FloatingNavBar(
     selectedTab: Tab,
     onTabSelected: (Tab) -> Unit,
-    onSearchClick: () -> Unit,
+    onAddClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -167,17 +175,94 @@ private fun FloatingNavBar(
             }
         }
 
-        // Lente di ricerca staccata
-        Surface(
-            onClick = onSearchClick,
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 6.dp
-        ) {
-            SearchIcon(
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(14.dp).size(24.dp)
+        // Bottone "aggiungi carta" staccato
+        CircleIconButton(onClick = onAddClick) {
+            AddCardIcon(
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(8.dp).size(34.dp)
             )
+        }
+    }
+}
+
+/** Bottone circolare con ombra, riusato per lente e "aggiungi carta". */
+@Composable
+private fun CircleIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 6.dp,
+        modifier = modifier
+    ) {
+        content()
+    }
+}
+
+/** Icona "aggiungi carta": una carta (con angolo aperto) e un "+" in basso a destra. */
+@Composable
+private fun AddCardIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = size.minDimension * 0.06f
+        val r = w * 0.11f
+
+        val left = w * 0.08f
+        val right = w * 0.70f
+        val top = h * 0.10f
+        val bottom = h * 0.66f
+
+        val bottomGapX = w * 0.46f
+        val rightGapY = h * 0.46f
+
+        // "+" nella nicchia vuota, tra il bordo inferiore e il bordo destro della carta
+        val cx = (bottomGapX + right) / 2f
+        val cy = (rightGapY + bottom) / 2f
+        val pr = w * 0.12f
+
+        // Il glifo non è simmetrico: occupa la zona in alto a sinistra del Canvas.
+        // Calcoliamo il suo bounding box e lo ricentriamo con un translate.
+        val minX = left
+        val maxX = cx + pr
+        val minY = top
+        val maxY = cy + pr
+        val dx = (w - (minX + maxX)) / 2f
+        val dy = (h - (minY + maxY)) / 2f
+
+        translate(left = dx, top = dy) {
+            // Bordo carta: parte dal bordo inferiore, gira in senso antiorario e
+            // si ferma sul bordo destro, lasciando "aperto" l'angolo in basso a destra.
+            val cardPath = Path().apply {
+                moveTo(bottomGapX, bottom)
+                lineTo(left + r, bottom)
+                quadraticTo(left, bottom, left, bottom - r)   // angolo in basso a sinistra
+                lineTo(left, top + r)
+                quadraticTo(left, top, left + r, top)         // angolo in alto a sinistra
+                lineTo(right - r, top)
+                quadraticTo(right, top, right, top + r)        // angolo in alto a destra
+                lineTo(right, rightGapY)
+            }
+            drawPath(
+                path = cardPath,
+                color = color,
+                style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+
+            // Banda magnetica (linea orizzontale sotto il bordo superiore)
+            val stripeY = h * 0.28f
+            drawLine(color, Offset(left, stripeY), Offset(right, stripeY), strokeWidth = stroke, cap = StrokeCap.Round)
+
+            // Piccolo trattino in basso a sinistra
+            val dashY = h * 0.45f
+            drawLine(color, Offset(w * 0.16f, dashY), Offset(w * 0.27f, dashY), strokeWidth = stroke, cap = StrokeCap.Round)
+
+            drawLine(color, Offset(cx - pr, cy), Offset(cx + pr, cy), strokeWidth = stroke, cap = StrokeCap.Round)
+            drawLine(color, Offset(cx, cy - pr), Offset(cx, cy + pr), strokeWidth = stroke, cap = StrokeCap.Round)
         }
     }
 }
