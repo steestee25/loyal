@@ -153,6 +153,20 @@ fun CardDetailScreen(
                         val modules = remember(card.code) { Code128Encoder().encode(card.code) }
                         BarcodeView(modules = modules)
                     }
+                    BarcodeFormat.ITF -> {
+                        val modules = remember(card.code) { ItfEncoder().encode(card.code) }
+                        BarcodeView(
+                            modules = modules,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                    }
+                    BarcodeFormat.UPC_A -> {
+                        val modules = remember(card.code) { UpcAEncoder().encode(card.code) }
+                        BarcodeView(
+                            modules = modules,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(32.dp))
