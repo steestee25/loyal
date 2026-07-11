@@ -20,6 +20,7 @@ private data class LoyaltyCardRow(
     val code: String,
     val format: String,
     @SerialName("color_argb") val colorArgb: Long,
+    val label: String? = null,
     val note: String? = null,
     @SerialName("created_at") val createdAt: String
 )
@@ -32,6 +33,7 @@ private fun LoyaltyCardRow.toDomain() = LoyaltyCard(
     code = code,
     format = BarcodeFormat.valueOf(format),
     colorArgb = colorArgb,
+    label = label,
     note = note,
     createdAt = Instant.parse(createdAt)
 )
@@ -45,6 +47,7 @@ private fun LoyaltyCard.toRow(userId: String) = LoyaltyCardRow(
     code = code,
     format = format.name,
     colorArgb = colorArgb,
+    label = label,
     note = note,
     createdAt = createdAt.toString()
 )

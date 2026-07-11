@@ -44,6 +44,7 @@ fun AddEditCardScreen(
     val scope = rememberCoroutineScope()
     var logoUrl by remember { mutableStateOf(initialCard?.logoUrl) }
     var colorArgb by remember { mutableStateOf(initialCard?.colorArgb ?: 0xFF6200EEL) }
+    var label by remember { mutableStateOf(initialCard?.label ?: "") }
 
     if (showScanner) {
         ScanCardView(
@@ -94,6 +95,13 @@ fun AddEditCardScreen(
 
             Text("Selezionato: $brandName / $domain")
 
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it },
+                label = { Text("Nome carta (es. \"carta temp\")") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Button(onClick = { showScanner = true }) {
                 Text("Scansiona tessera")
             }
@@ -111,6 +119,7 @@ fun AddEditCardScreen(
                             code = code,
                             format = scannedFormat,
                             colorArgb = colorArgb,
+                            label = label.ifBlank { null },
                             note = initialCard?.note,
                             createdAt = initialCard?.createdAt ?: Clock.System.now(),
                             logoUrl = logoUrl

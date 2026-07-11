@@ -10,6 +10,7 @@ data class LoyaltyCard(
     val code: String,
     val format: BarcodeFormat,
     val colorArgb: Long,
+    val label: String? = null,
     val note: String? = null,
     val createdAt: Instant
 )

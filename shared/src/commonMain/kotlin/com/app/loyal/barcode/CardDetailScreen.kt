@@ -80,7 +80,7 @@ fun CardDetailScreen(
                     modifier = Modifier.size(40.dp)
                 )
                 Text(
-                    text = card.brandName,
+                    text = card.label?.takeIf { it.isNotBlank() } ?: card.brandName,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
