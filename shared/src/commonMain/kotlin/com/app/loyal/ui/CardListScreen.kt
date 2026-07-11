@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
@@ -97,13 +98,19 @@ private fun LoyaltyCardItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Colori scuri/saturi (bassa luminosità) risultano troppo marcati:
+    // li rendiamo più tenui abbassando l'alpha, mentre i colori chiari restano pieni.
+    val baseColor = Color(card.colorArgb)
+    val borderAlpha = (0.15f + 1.6f * baseColor.luminance()).coerceIn(0.15f, 1f)
+    val borderColor = baseColor.copy(alpha = borderAlpha)
+
     Card(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, Color(card.colorArgb)),
+        border = BorderStroke(1.dp, borderColor),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Row(

@@ -3,11 +3,14 @@ package com.app.loyal.barcode
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import com.app.loyal.model.BarcodeFormat
 import com.app.loyal.util.rememberCameraPermissionGranted
 import org.ncgroup.kscan.Barcode
 import org.ncgroup.kscan.BarcodeResult
+import org.ncgroup.kscan.ScannerUiOptions
 import org.ncgroup.kscan.ScannerView
+import org.ncgroup.kscan.scannerColors
 import org.ncgroup.kscan.BarcodeFormat as KScanFormat
 
 private fun Barcode.toAppFormat(): BarcodeFormat? = when (format) {
@@ -24,7 +27,11 @@ actual fun ScanCardView(
 ) {
     if (rememberCameraPermissionGranted()) {
         ScannerView(
-            codeTypes = listOf(KScanFormat.FORMAT_QR_CODE, KScanFormat.FORMAT_EAN_13, KScanFormat.FORMAT_CODE_128)
+            codeTypes = listOf(KScanFormat.FORMAT_QR_CODE, KScanFormat.FORMAT_EAN_13, KScanFormat.FORMAT_CODE_128),
+            colors = scannerColors(
+                headerContainerColor = Color.Transparent
+            ),
+            scannerUiOptions = ScannerUiOptions(headerTitle = "")
         ) { result ->
             when (result) {
                 is BarcodeResult.OnSuccess -> result.barcode.toAppFormat()?.let { onScanned(result.barcode.data, it) }
