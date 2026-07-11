@@ -218,7 +218,7 @@ private fun SortOrderBottomSheet(
             )
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp)
+                modifier = Modifier.padding(horizontal = 24.dp).padding(top = 8.dp, bottom = 8.dp)
             )
             SortOption(
                 label = "Ordine alfabetico",
