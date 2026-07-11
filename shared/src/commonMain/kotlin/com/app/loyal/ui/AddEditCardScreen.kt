@@ -1,5 +1,6 @@
 package com.app.loyal.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,10 +18,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -47,6 +53,16 @@ import kotlin.time.Clock
 
 /** Passi del processo di aggiunta carta. */
 private enum class AddStep { Brand, Scan, Details }
+
+/** Colori condivisi da tutti i textfield del flusso, per garantire lo stesso aspetto ovunque. */
+@Composable
+private fun sharedTextFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
+    unfocusedContainerColor = Color.Transparent,
+    focusedContainerColor = Color.Transparent,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+)
 
 @Composable
 fun AddEditCardScreen(
@@ -106,6 +122,7 @@ fun AddEditCardScreen(
                         onValueChange = { query = it },
                         label = { Text("Cerca brand") },
                         singleLine = true,
+                        colors = sharedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -187,32 +204,70 @@ fun AddEditCardScreen(
 
                 Spacer(Modifier.height(32.dp))
 
-                // Anteprima tessera + numero tessera con icona copia
-                val currentFormat = format
-                if (currentFormat != null && code.isNotBlank()) {
-                    CardBarcode(code = code, format = currentFormat)
-                    Spacer(Modifier.height(16.dp))
-                    CardCodeRow(code = code)
+                // Bordo un filino più marcato del solito grigino usato in home,
+                // condiviso tra anteprima tessera e card dettagli.
+                val emphasizedBorderColor = loyaltyCardBorderColor(colorArgb).let {
+                    it.copy(alpha = (it.alpha + 0.15f).coerceAtMost(1f))
                 }
 
-                Spacer(Modifier.height(32.dp))
+                // Anteprima tessera dentro una card bordata, stesso colore della home
+                val currentFormat = format
+                if (currentFormat != null && code.isNotBlank()) {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, emphasizedBorderColor),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CardBarcode(code = code, format = currentFormat)
+                            Spacer(Modifier.height(16.dp))
+                            CardCodeRow(code = code)
+                        }
+                    }
+                }
 
-                OutlinedTextField(
-                    value = label,
-                    onValueChange = { label = it },
-                    label = { Text("Nome carta") },
-                    singleLine = true,
+                Spacer(Modifier.height(24.dp))
+
+                // Card "dettagli": label e note raggruppate
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, emphasizedBorderColor),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Text(
+                            text = "Dettagli",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
 
-                Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(12.dp))
 
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    label = { Text("Note") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                        OutlinedTextField(
+                            value = label,
+                            onValueChange = { label = it },
+                            label = { Text("Nome carta") },
+                            singleLine = true,
+                            colors = sharedTextFieldColors(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it },
+                            label = { Text("Note") },
+                            colors = sharedTextFieldColors(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
 
                 Spacer(Modifier.height(24.dp))
 

@@ -46,6 +46,17 @@ import coil3.compose.AsyncImage
 
 enum class Tab { Home, Settings }
 
+/**
+ * Colore del bordo di una tessera a partire dal suo [colorArgb].
+ * Colori scuri/saturi (bassa luminosità) risultano troppo marcati: li rendiamo
+ * più tenui abbassando l'alpha, mentre i colori chiari restano pieni.
+ */
+internal fun loyaltyCardBorderColor(colorArgb: Long): Color {
+    val baseColor = Color(colorArgb)
+    val borderAlpha = (0.16f + 1.7f * baseColor.luminance()).coerceIn(0.16f, 1f)
+    return baseColor.copy(alpha = borderAlpha)
+}
+
 @Composable
 fun CardListScreen(
     viewModel: CardListViewModel,
@@ -106,11 +117,7 @@ private fun LoyaltyCardItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Colori scuri/saturi (bassa luminosità) risultano troppo marcati:
-    // li rendiamo più tenui abbassando l'alpha, mentre i colori chiari restano pieni.
-    val baseColor = Color(card.colorArgb)
-    val borderAlpha = (0.10f + 1.6f * baseColor.luminance()).coerceIn(0.10f, 1f)
-    val borderColor = baseColor.copy(alpha = borderAlpha)
+    val borderColor = loyaltyCardBorderColor(card.colorArgb)
 
     Card(
         onClick = onClick,
