@@ -3,6 +3,7 @@ package com.app.loyal.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,17 +15,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.luminance
@@ -64,37 +74,37 @@ fun CardListScreen(
     viewModel: CardListViewModel,
     onAddClick: () -> Unit,
     onCardClick: (LoyaltyCard) -> Unit,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    listState: LazyListState = rememberLazyListState()
 ) {
     val cards by viewModel.cards.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     var selectedTab by remember { mutableStateOf(Tab.Home) }
+    var query by remember { mutableStateOf("") }
+    var showSortSheet by remember { mutableStateOf(false) }
+
+    val filteredCards = remember(cards, query) {
+        val q = query.trim()
+        if (q.isEmpty()) cards
+        else cards.filter { it.brandName.contains(q, ignoreCase = true) }
+    }
 
     Scaffold { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (selectedTab) {
                 Tab.Home -> Column(modifier = Modifier.fillMaxSize()) {
-                    // Header: lente di ricerca in alto a destra
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        CircleIconButton(onClick = { /* TODO: ricerca */ }) {
-                            SearchIcon(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(10.dp).size(20.dp)
-                            )
-                        }
-                    }
-                    SortFilterChips(
-                        selected = sortOrder,
-                        onSelected = viewModel::setSortOrder
+                    HomeSearchHeader(
+                        query = query,
+                        onQueryChange = { query = it },
+                        onSortClick = { showSortSheet = true },
+                        onProfileClick = { selectedTab = Tab.Settings }
                     )
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 100.dp)
                     ) {
-                        items(cards) { card ->
+                        items(filteredCards) { card ->
                             LoyaltyCardItem(
                                 card = card,
                                 onClick = {
@@ -122,45 +132,162 @@ fun CardListScreen(
             )
         }
     }
+
+    if (showSortSheet) {
+        SortOrderBottomSheet(
+            selected = sortOrder,
+            onSelected = {
+                viewModel.setSortOrder(it)
+                showSortSheet = false
+            },
+            onDismiss = { showSortSheet = false }
+        )
+    }
 }
 
+/**
+ * Header della home: textfield rotondeggiante bianca per la ricerca, con l'icona di
+ * ordinamento in fondo a destra (apre il bottom sheet) e l'icona profilo a destra (va alle impostazioni).
+ */
 @Composable
-private fun SortFilterChips(
-    selected: CardSortOrder,
-    onSelected: (CardSortOrder) -> Unit,
+private fun HomeSearchHeader(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSortClick: () -> Unit,
+    onProfileClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyRow(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Row(
+        modifier = modifier.fillMaxWidth().padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        item {
-            FilterChip(
+        TextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.weight(1f),
+            placeholder = { Text("Cerca in Loyal") },
+            singleLine = true,
+            shape = RoundedCornerShape(50),
+            trailingIcon = {
+                IconButton(onClick = onSortClick) {
+                    SortIcon(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            },
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent
+            )
+        )
+
+        CircleIconButton(onClick = onProfileClick) {
+            ProfileIcon(
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(10.dp).size(24.dp)
+            )
+        }
+    }
+}
+
+/** Bottom sheet con le 3 opzioni di ordinamento (prima erano dei FilterChip). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SortOrderBottomSheet(
+    selected: CardSortOrder,
+    onSelected: (CardSortOrder) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text(
+                text = "Ordina per",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+            )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp)
+            )
+            SortOption(
+                label = "Ordine alfabetico",
                 selected = selected == CardSortOrder.Alphabetical,
-                onClick = { onSelected(CardSortOrder.Alphabetical) },
-                label = { Text("Ordine alfabetico") }
+                onClick = { onSelected(CardSortOrder.Alphabetical) }
             )
-        }
-        item {
-            FilterChip(
+            SortOption(
+                label = "Più usati",
                 selected = selected == CardSortOrder.MostUsed,
-                onClick = { onSelected(CardSortOrder.MostUsed) },
-                label = { Text("Più usati") }
+                onClick = { onSelected(CardSortOrder.MostUsed) }
             )
-        }
-        item {
-            FilterChip(
+            SortOption(
+                label = "Visti di recente",
                 selected = selected == CardSortOrder.RecentlyViewed,
-                onClick = { onSelected(CardSortOrder.RecentlyViewed) },
-                label = { Text("Visti di recente") }
+                onClick = { onSelected(CardSortOrder.RecentlyViewed) }
             )
         }
     }
 }
 
 @Composable
-private fun LoyaltyCardItem(
+private fun SortOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(percent = 50)
+    val contentColor =
+        if (selected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurface
+
+    // Quando selezionata, l'opzione è evidenziata da un contenitore a pillola:
+    // sfondo tenue + bordo di 1dp del colore primario.
+    val containerModifier =
+        if (selected) {
+            Modifier
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f), shape)
+                .border(1.dp, MaterialTheme.colorScheme.primary, shape)
+        } else {
+            Modifier
+        }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .clip(shape)
+            .then(containerModifier)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = contentColor
+        )
+        if (selected) {
+            CheckIcon(
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+internal fun LoyaltyCardItem(
     card: LoyaltyCard,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -350,32 +477,66 @@ private fun NavItem(
     }
 }
 
-/** Lente d'ingrandimento disegnata a mano con Canvas (nessuna dipendenza esterna di icone). */
+/** Icona di ordinamento: due frecce verticali opposte (su/giù), disegnata a mano con Canvas. */
 @Composable
-private fun SearchIcon(color: Color, modifier: Modifier = Modifier) {
+private fun SortIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val stroke = 1.8.dp.toPx()
+        val w = size.width
+        val h = size.height
+        val head = w * 0.16f
+
+        // Freccia sinistra: punta in alto
+        val xUp = w * 0.32f
+        drawLine(color, Offset(xUp, h * 0.14f), Offset(xUp, h * 0.86f), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color, Offset(xUp, h * 0.14f), Offset(xUp - head, h * 0.36f), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color, Offset(xUp, h * 0.14f), Offset(xUp + head, h * 0.36f), strokeWidth = stroke, cap = StrokeCap.Round)
+
+        // Freccia destra: punta in basso
+        val xDown = w * 0.68f
+        drawLine(color, Offset(xDown, h * 0.14f), Offset(xDown, h * 0.86f), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color, Offset(xDown, h * 0.86f), Offset(xDown - head, h * 0.64f), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color, Offset(xDown, h * 0.86f), Offset(xDown + head, h * 0.64f), strokeWidth = stroke, cap = StrokeCap.Round)
+    }
+}
+
+/** Icona profilo: testa (cerchio) e spalle (arco), disegnata a mano con Canvas. */
+@Composable
+private fun ProfileIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val stroke = 2.dp.toPx()
-        val radius = size.minDimension * 0.30f
-        val center = Offset(size.width * 0.40f, size.height * 0.40f)
+        val w = size.width
+        val h = size.height
 
+        val headRadius = w * 0.18f
         drawCircle(
             color = color,
-            radius = radius,
-            center = center,
+            radius = headRadius,
+            center = Offset(w * 0.5f, h * 0.32f),
             style = Stroke(width = stroke)
         )
 
-        val handleStart = Offset(
-            x = center.x + radius * 0.7f,
-            y = center.y + radius * 0.7f
-        )
-        val handleEnd = Offset(x = size.width * 0.85f, y = size.height * 0.85f)
-        drawLine(
+        val shoulderRadius = w * 0.34f
+        drawArc(
             color = color,
-            start = handleStart,
-            end = handleEnd,
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
+            startAngle = 180f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(w * 0.5f - shoulderRadius, h * 0.60f),
+            size = Size(shoulderRadius * 2, shoulderRadius * 2),
+            style = Stroke(width = stroke, cap = StrokeCap.Round)
         )
+    }
+}
+
+/** Spunta di conferma, disegnata a mano con Canvas. */
+@Composable
+private fun CheckIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val stroke = 2.dp.toPx()
+        val w = size.width
+        val h = size.height
+        drawLine(color, Offset(w * 0.15f, h * 0.55f), Offset(w * 0.42f, h * 0.80f), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color, Offset(w * 0.42f, h * 0.80f), Offset(w * 0.85f, h * 0.25f), strokeWidth = stroke, cap = StrokeCap.Round)
     }
 }

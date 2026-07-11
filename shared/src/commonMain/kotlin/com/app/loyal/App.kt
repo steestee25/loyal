@@ -27,6 +27,7 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.app.loyal.ui.AuthScreen
 
 sealed class Screen {
@@ -47,6 +48,7 @@ fun App() {
     val scope = rememberCoroutineScope()
 
     var screen by remember { mutableStateOf<Screen>(Screen.List) }
+    val cardListState = rememberLazyListState()
 
     setSingletonImageLoaderFactory { context ->
         ImageLoader.Builder(context)
@@ -71,7 +73,8 @@ fun App() {
                     onLogoutClick = {
                         scope.launch { supabase.auth.signOut() }
                         screen = Screen.List
-                    }
+                    },
+                    listState = cardListState
                 )
                 is Screen.AddCard -> AddEditCardScreen(
                     brandSearchApi = brandSearchApi,
