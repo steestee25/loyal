@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -65,6 +67,7 @@ fun CardListScreen(
     onLogoutClick: () -> Unit
 ) {
     val cards by viewModel.cards.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
     var selectedTab by remember { mutableStateOf(Tab.Home) }
 
     Scaffold { padding ->
@@ -83,12 +86,22 @@ fun CardListScreen(
                             )
                         }
                     }
+                    SortFilterChips(
+                        selected = sortOrder,
+                        onSelected = viewModel::setSortOrder
+                    )
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 100.dp)
                     ) {
                         items(cards) { card ->
-                            LoyaltyCardItem(card = card, onClick = { onCardClick(card) })
+                            LoyaltyCardItem(
+                                card = card,
+                                onClick = {
+                                    viewModel.recordView(card.id)
+                                    onCardClick(card)
+                                }
+                            )
                         }
                     }
                 }
@@ -106,6 +119,41 @@ fun CardListScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SortFilterChips(
+    selected: CardSortOrder,
+    onSelected: (CardSortOrder) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            FilterChip(
+                selected = selected == CardSortOrder.Alphabetical,
+                onClick = { onSelected(CardSortOrder.Alphabetical) },
+                label = { Text("Ordine alfabetico") }
+            )
+        }
+        item {
+            FilterChip(
+                selected = selected == CardSortOrder.MostUsed,
+                onClick = { onSelected(CardSortOrder.MostUsed) },
+                label = { Text("Più usati") }
+            )
+        }
+        item {
+            FilterChip(
+                selected = selected == CardSortOrder.RecentlyViewed,
+                onClick = { onSelected(CardSortOrder.RecentlyViewed) },
+                label = { Text("Visti di recente") }
             )
         }
     }

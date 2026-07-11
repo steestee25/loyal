@@ -12,5 +12,7 @@ data class LoyaltyCard(
     val colorArgb: Long,
     val label: String? = null,
     val note: String? = null,
-    val createdAt: Instant
+    val createdAt: Instant,
+    val usageCount: Int = 0,
+    val lastViewedAt: Instant? = null
 )

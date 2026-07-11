@@ -7,6 +7,7 @@ import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.datetime.Instant
+import kotlin.time.Clock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -22,7 +23,15 @@ private data class LoyaltyCardRow(
     @SerialName("color_argb") val colorArgb: Long,
     val label: String? = null,
     val note: String? = null,
-    @SerialName("created_at") val createdAt: String
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("usage_count") val usageCount: Int = 0,
+    @SerialName("last_viewed_at") val lastViewedAt: String? = null
+)
+
+@Serializable
+private data class LoyaltyCardUsageUpdate(
+    @SerialName("usage_count") val usageCount: Int,
+    @SerialName("last_viewed_at") val lastViewedAt: String
 )
 
 private fun LoyaltyCardRow.toDomain() = LoyaltyCard(
@@ -35,7 +44,9 @@ private fun LoyaltyCardRow.toDomain() = LoyaltyCard(
     colorArgb = colorArgb,
     label = label,
     note = note,
-    createdAt = Instant.parse(createdAt)
+    createdAt = Instant.parse(createdAt),
+    usageCount = usageCount,
+    lastViewedAt = lastViewedAt?.let { Instant.parse(it) }
 )
 
 private fun LoyaltyCard.toRow(userId: String) = LoyaltyCardRow(
@@ -49,7 +60,9 @@ private fun LoyaltyCard.toRow(userId: String) = LoyaltyCardRow(
     colorArgb = colorArgb,
     label = label,
     note = note,
-    createdAt = createdAt.toString()
+    createdAt = createdAt.toString(),
+    usageCount = usageCount,
+    lastViewedAt = lastViewedAt?.toString()
 )
 
 class SupabaseLoyaltyCardRepository(
@@ -78,6 +91,19 @@ class SupabaseLoyaltyCardRepository(
 
     override suspend fun delete(id: String) {
         table.delete {
+            filter { eq("id", id) }
+        }
+        refresh()
+    }
+
+    override suspend fun recordView(id: String) {
+        val newCount = (cards.value.firstOrNull { it.id == id }?.usageCount ?: 0) + 1
+        table.update(
+            LoyaltyCardUsageUpdate(
+                usageCount = newCount,
+                lastViewedAt = Clock.System.now().toString()
+            )
+        ) {
             filter { eq("id", id) }
         }
         refresh()
