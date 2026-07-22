@@ -60,6 +60,17 @@ data class Strings(
     // Sezioni della home
     val favoritesSection: String,
     val cardsSection: String,
+    // Stati vuoti
+    val noCardsTitle: String,
+    val noCardsMessage: String,
+    val noSearchResultsTitle: String,
+    val noSearchResultsMessage: String,
+    // Conferma eliminazione
+    val deleteCardTitle: String,
+    val deleteCardMessage: String,
+    val cancel: String,
+    // Sincronizzazione
+    val offlineChangesNotSynced: String,
 )
 
 private val ItalianStrings = Strings(
@@ -99,6 +110,14 @@ private val ItalianStrings = Strings(
     },
     favoritesSection = "Preferiti",
     cardsSection = "Carte",
+    noCardsTitle = "Nessuna tessera",
+    noCardsMessage = "Tocca + per aggiungere la tua prima tessera fedeltà.",
+    noSearchResultsTitle = "Nessun risultato",
+    noSearchResultsMessage = "Prova con un altro nome.",
+    deleteCardTitle = "Eliminare la tessera?",
+    deleteCardMessage = "La tessera verrà rimossa da tutti i tuoi dispositivi. L'operazione non è reversibile.",
+    cancel = "Annulla",
+    offlineChangesNotSynced = "Nessuna connessione: le tessere mostrate potrebbero non essere aggiornate.",
 )
 
 private val EnglishStrings = Strings(
@@ -138,6 +157,14 @@ private val EnglishStrings = Strings(
     },
     favoritesSection = "Favorites",
     cardsSection = "Cards",
+    noCardsTitle = "No cards yet",
+    noCardsMessage = "Tap + to add your first loyalty card.",
+    noSearchResultsTitle = "No results",
+    noSearchResultsMessage = "Try a different name.",
+    deleteCardTitle = "Delete this card?",
+    deleteCardMessage = "The card will be removed from all your devices. This can't be undone.",
+    cancel = "Cancel",
+    offlineChangesNotSynced = "You're offline: the cards shown may be out of date.",
 )
 
 /** Restituisce il set di stringhe per la [language] scelta. */

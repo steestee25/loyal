@@ -51,6 +51,8 @@ import com.app.loyal.model.LoyaltyCard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /** Passi del processo di aggiunta carta. */
 private enum class AddStep { Brand, Scan, Details }
@@ -65,6 +67,7 @@ private fun sharedTextFieldColors(): TextFieldColors = OutlinedTextFieldDefaults
     unfocusedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 )
 
+@OptIn(ExperimentalUuidApi::class)
 @Composable
 fun AddEditCardScreen(
     brandSearchApi: BrandSearchApi,
@@ -278,7 +281,10 @@ fun AddEditCardScreen(
                         val scannedFormat = format ?: return@Button
                         onSave(
                             LoyaltyCard(
-                                id = initialCard?.id ?: Clock.System.now().toEpochMilliseconds().toString(),
+                                // UUID e non il timestamp: due dispositivi che
+                                // aggiungono una carta nello stesso millisecondo
+                                // generavano lo stesso id, e update() fa upsert.
+                                id = initialCard?.id ?: Uuid.random().toString(),
                                 brandName = brandName,
                                 domain = domain,
                                 code = code,

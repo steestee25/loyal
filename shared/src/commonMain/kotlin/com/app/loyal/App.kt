@@ -6,7 +6,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.app.loyal.data.AppPreferences
+import com.app.loyal.data.LoyaltyCardCache
 import com.app.loyal.data.SupabaseLoyaltyCardRepository
+import com.app.loyal.util.rememberKeyValueStore
 import com.app.loyal.model.LoyaltyCard
 import com.app.loyal.ui.AddEditCardScreen
 import com.app.loyal.ui.CardListScreen
@@ -51,8 +54,12 @@ fun App() {
 
     val scope = rememberCoroutineScope()
 
+    val keyValueStore = rememberKeyValueStore()
+    val preferences = remember(keyValueStore) { AppPreferences(keyValueStore) }
+
     var screen by remember { mutableStateOf<Screen>(Screen.List) }
-    var language by remember { mutableStateOf(AppLanguage.Italian) }
+    // La lingua riparte da quella salvata, non dal default italiano.
+    var language by remember { mutableStateOf(preferences.language) }
     val cardListState = rememberLazyListState()
 
     setSingletonImageLoaderFactory { context ->
@@ -68,8 +75,14 @@ fun App() {
         val userEmail = user?.email ?: ""
 
         if (userId != null) {
-            val repository = remember(userId) { SupabaseLoyaltyCardRepository(supabase, userId) }
-            val viewModel = remember(userId) { CardListViewModel(repository) }
+            val repository = remember(userId, keyValueStore) {
+                SupabaseLoyaltyCardRepository(
+                    supabase = supabase,
+                    userId = userId,
+                    cache = LoyaltyCardCache(keyValueStore, userId)
+                )
+            }
+            val viewModel = remember(repository) { CardListViewModel(repository, preferences) }
 
             LaunchedEffect(userId) { repository.refresh() }
 
@@ -79,7 +92,10 @@ fun App() {
                     userEmail = userEmail,
                     supabase = supabase,
                     language = language,
-                    onLanguageChange = { language = it },
+                    onLanguageChange = {
+                        language = it
+                        preferences.language = it
+                    },
                     onAddClick = { screen = Screen.AddCard },
                     onCardClick = { card -> screen = Screen.Detail(card) },
                     onLogoutClick = {

@@ -73,57 +73,106 @@ private fun LoyaltyCard.toRow(userId: String) = LoyaltyCardRow(
     isFavorite = isFavorite
 )
 
+/**
+ * Repository offline-first: la UI legge sempre dalla copia locale, che parte
+ * dalla [cache] su disco e viene riallineata a Supabase quando la rete c'è.
+ * Nessun metodo lancia eccezioni per problemi di rete: un errore accende
+ * [syncFailed], così le tessere restano consultabili anche offline.
+ */
 class SupabaseLoyaltyCardRepository(
     private val supabase: SupabaseClient,
-    private val userId: String
+    private val userId: String,
+    private val cache: LoyaltyCardCache
 ) : LoyaltyCardRepository {
 
     private val table = supabase.from("loyalty_cards")
-    private val cards = MutableStateFlow<List<LoyaltyCard>>(emptyList())
 
-    suspend fun refresh() {
-        cards.value = table.select().decodeList<LoyaltyCardRow>().map { it.toDomain() }
-    }
+    // Partiamo dalle tessere su disco: all'avvio sono già a schermo, senza attese.
+    private val cards = MutableStateFlow(cache.load())
+
+    private val syncFailedFlow = MutableStateFlow(false)
+    override val syncFailed: StateFlow<Boolean> = syncFailedFlow
 
     override fun observeCards(): StateFlow<List<LoyaltyCard>> = cards
 
+    override fun clearSyncFailed() {
+        syncFailedFlow.value = false
+    }
+
+    /** Riallinea la copia locale a Supabase. Se la rete manca, tiene la cache. */
+    suspend fun refresh() {
+        runCatching { table.select().decodeList<LoyaltyCardRow>().map { it.toDomain() } }
+            .onSuccess { remote ->
+                setLocal(remote)
+                syncFailedFlow.value = false
+            }
+            .onFailure { syncFailedFlow.value = true }
+    }
+
     override suspend fun add(card: LoyaltyCard) {
-        table.insert(card.toRow(userId))
-        refresh()
+        setLocal(cards.value + card)
+        sync { table.insert(card.toRow(userId)) }
     }
 
     override suspend fun update(card: LoyaltyCard) {
-        table.upsert(card.toRow(userId))
-        refresh()
+        setLocal(cards.value.map { if (it.id == card.id) card else it })
+        sync { table.upsert(card.toRow(userId)) }
     }
 
     override suspend fun delete(id: String) {
-        table.delete {
-            filter { eq("id", id) }
+        setLocal(cards.value.filterNot { it.id == id })
+        sync {
+            table.delete {
+                filter { eq("id", id) }
+            }
         }
-        refresh()
     }
 
     override suspend fun recordView(id: String) {
+        val viewedAt = Clock.System.now()
         val newCount = (cards.value.firstOrNull { it.id == id }?.usageCount ?: 0) + 1
-        table.update(
-            LoyaltyCardUsageUpdate(
-                usageCount = newCount,
-                lastViewedAt = Clock.System.now().toString()
-            )
-        ) {
-            filter { eq("id", id) }
+        setLocal(
+            cards.value.map {
+                if (it.id == id) it.copy(usageCount = newCount, lastViewedAt = viewedAt) else it
+            }
+        )
+        sync {
+            table.update(
+                LoyaltyCardUsageUpdate(
+                    usageCount = newCount,
+                    lastViewedAt = viewedAt.toString()
+                )
+            ) {
+                filter { eq("id", id) }
+            }
         }
-        refresh()
     }
 
     override suspend fun setFavorite(id: String, favorite: Boolean) {
-        // Aggiornamento ottimistico: il cuore nella lista deve reagire subito al tap,
-        // senza aspettare il round-trip verso Supabase.
-        cards.value = cards.value.map { if (it.id == id) it.copy(isFavorite = favorite) else it }
-        table.update(LoyaltyCardFavoriteUpdate(isFavorite = favorite)) {
-            filter { eq("id", id) }
+        setLocal(cards.value.map { if (it.id == id) it.copy(isFavorite = favorite) else it })
+        sync {
+            table.update(LoyaltyCardFavoriteUpdate(isFavorite = favorite)) {
+                filter { eq("id", id) }
+            }
         }
-        refresh()
+    }
+
+    /**
+     * Applica subito la modifica in locale (UI reattiva) e la persiste su disco,
+     * così sopravvive anche se l'app viene chiusa prima della sincronizzazione.
+     */
+    private fun setLocal(updated: List<LoyaltyCard>) {
+        cards.value = updated
+        cache.save(updated)
+    }
+
+    /**
+     * Esegue la scrittura remota senza propagare gli errori: la modifica locale
+     * è già stata applicata. In caso di esito positivo riallinea dal server.
+     */
+    private suspend fun sync(write: suspend () -> Unit) {
+        runCatching { write() }
+            .onSuccess { refresh() }
+            .onFailure { syncFailedFlow.value = true }
     }
 }

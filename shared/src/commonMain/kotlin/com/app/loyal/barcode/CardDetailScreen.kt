@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +42,7 @@ import com.app.loyal.i18n.LocalStrings
 import com.app.loyal.model.LoyaltyCard
 import com.app.loyal.ui.HeartIcon
 import com.app.loyal.ui.MAX_FAVORITE_CARDS
+import com.app.loyal.util.KeepScreenBright
 import coil3.compose.AsyncImage
 
 /**
@@ -58,6 +61,10 @@ fun CardDetailScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // Il barcode va letto da uno scanner: schermo al massimo e display sempre acceso.
+    KeepScreenBright()
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -157,7 +164,7 @@ fun CardDetailScreen(
                             text = { Text(strings.delete) },
                             onClick = {
                                 menuExpanded = false
-                                onDelete()
+                                showDeleteDialog = true
                             },
                             leadingIcon = {
                                 TrashIcon(
@@ -195,6 +202,32 @@ fun CardDetailScreen(
             }
 
         }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text(strings.deleteCardTitle) },
+            text = { Text(strings.deleteCardMessage) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDelete()
+                    }
+                ) {
+                    Text(
+                        text = strings.delete,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(strings.cancel)
+                }
+            }
+        )
     }
 }
 

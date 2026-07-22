@@ -2,13 +2,13 @@ package com.app.loyal.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.app.loyal.data.AppPreferences
 import com.app.loyal.data.LoyaltyCardRepository
 import com.app.loyal.model.LoyaltyCard
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
@@ -23,42 +23,45 @@ enum class CardSortOrder {
 const val MAX_FAVORITE_CARDS = 4
 
 class CardListViewModel(
-    private val repository: LoyaltyCardRepository
+    private val repository: LoyaltyCardRepository,
+    private val preferences: AppPreferences
 ) : ViewModel() {
 
-    private val sortOrderFlow = MutableStateFlow(CardSortOrder.Alphabetical)
+    private val storedCards = repository.observeCards()
+
+    // L'ordinamento riparte da quello scelto l'ultima volta.
+    private val sortOrderFlow = MutableStateFlow(preferences.sortOrder)
     val sortOrder: StateFlow<CardSortOrder> = sortOrderFlow
 
+    val syncFailed: StateFlow<Boolean> = repository.syncFailed
+
     val cards: StateFlow<List<LoyaltyCard>> = combine(
-        repository.observeCards(),
+        storedCards,
         sortOrderFlow
     ) { cards, sortOrder ->
-        // I preferiti non vengono più messi in cima: hanno la loro sezione nella home.
-        when (sortOrder) {
-            CardSortOrder.Alphabetical -> cards.sortedBy { it.brandName.lowercase() }
-            CardSortOrder.MostUsed -> cards.sortedByDescending { it.usageCount }
-            CardSortOrder.RecentlyViewed -> cards.sortedByDescending { it.lastViewedAt ?: Instant.DISTANT_PAST }
-        }
+        sorted(cards, sortOrder)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
+        // Le tessere in cache sono già disponibili: partiamo da quelle.
+        initialValue = sorted(storedCards.value, sortOrderFlow.value)
     )
 
-    /**
-     * Conteggio dei preferiti, tenuto sempre aggiornato ([SharingStarted.Eagerly]):
-     * il limite va verificato anche dal dettaglio carta, dove [cards] non ha collector.
-     */
-    private val favoriteCount: StateFlow<Int> = repository.observeCards()
-        .map { cards -> cards.count { it.isFavorite } }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = 0
-        )
+    /** I preferiti non vanno in cima: hanno la loro sezione nella home. */
+    private fun sorted(cards: List<LoyaltyCard>, sortOrder: CardSortOrder) = when (sortOrder) {
+        CardSortOrder.Alphabetical -> cards.sortedBy { it.brandName.lowercase() }
+        CardSortOrder.MostUsed -> cards.sortedByDescending { it.usageCount }
+        CardSortOrder.RecentlyViewed ->
+            cards.sortedByDescending { it.lastViewedAt ?: Instant.DISTANT_PAST }
+    }
 
     fun setSortOrder(sortOrder: CardSortOrder) {
         sortOrderFlow.value = sortOrder
+        preferences.sortOrder = sortOrder
+    }
+
+    fun clearSyncFailed() {
+        repository.clearSyncFailed()
     }
 
     fun recordView(id: String) {
@@ -73,7 +76,8 @@ class CardListViewModel(
      * un preferito oltre [MAX_FAVORITE_CARDS]; rimuovere è sempre permesso.
      */
     fun toggleFavorite(card: LoyaltyCard): Boolean {
-        if (!card.isFavorite && favoriteCount.value >= MAX_FAVORITE_CARDS) return false
+        val favorites = storedCards.value.count { it.isFavorite }
+        if (!card.isFavorite && favorites >= MAX_FAVORITE_CARDS) return false
         viewModelScope.launch {
             repository.setFavorite(card.id, !card.isFavorite)
         }

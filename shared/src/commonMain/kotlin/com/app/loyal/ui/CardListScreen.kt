@@ -39,6 +39,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +61,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.app.loyal.i18n.AppLanguage
@@ -109,6 +111,15 @@ fun CardListScreen(
             scope.launch {
                 snackbarHostState.showSnackbar(strings.favoritesLimitReached(MAX_FAVORITE_CARDS))
             }
+        }
+    }
+
+    // Avviso di mancata sincronizzazione: mostrato una volta per episodio.
+    val syncFailed by viewModel.syncFailed.collectAsState()
+    LaunchedEffect(syncFailed) {
+        if (syncFailed) {
+            snackbarHostState.showSnackbar(strings.offlineChangesNotSynced)
+            viewModel.clearSyncFailed()
         }
     }
 
@@ -171,16 +182,34 @@ fun CardListScreen(
                             }
                         }
 
-                        item { SectionHeader(strings.cardsSection) }
-                        items(filteredCards) { card ->
-                            LoyaltyCardItem(
-                                card = card,
-                                onClick = {
-                                    viewModel.recordView(card.id)
-                                    onCardClick(card)
-                                },
-                                onFavoriteClick = { onFavoriteClick(card) }
-                            )
+                        if (filteredCards.isNotEmpty()) {
+                            item { SectionHeader(strings.cardsSection) }
+                            items(filteredCards) { card ->
+                                LoyaltyCardItem(
+                                    card = card,
+                                    onClick = {
+                                        viewModel.recordView(card.id)
+                                        onCardClick(card)
+                                    },
+                                    onFavoriteClick = { onFavoriteClick(card) }
+                                )
+                            }
+                        } else {
+                            // Due stati vuoti distinti: "non hai tessere" richiede
+                            // un invito ad aggiungerle, "nessun risultato" no.
+                            item {
+                                if (query.isBlank()) {
+                                    EmptyState(
+                                        title = strings.noCardsTitle,
+                                        message = strings.noCardsMessage
+                                    )
+                                } else {
+                                    EmptyState(
+                                        title = strings.noSearchResultsTitle,
+                                        message = strings.noSearchResultsMessage
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -358,6 +387,34 @@ private fun SortOption(
                 modifier = Modifier.size(20.dp)
             )
         }
+    }
+}
+
+/** Messaggio centrato per lista vuota o ricerca senza risultati. */
+@Composable
+private fun EmptyState(
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp, vertical = 64.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
