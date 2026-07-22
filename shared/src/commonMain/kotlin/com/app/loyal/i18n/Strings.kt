@@ -55,6 +55,11 @@ data class Strings(
     // Preferiti
     val addToFavorites: String,
     val removeFromFavorites: String,
+    /** Messaggio di limite raggiunto; riceve il numero massimo di preferiti. */
+    val favoritesLimitReached: (Int) -> String,
+    // Sezioni della home
+    val favoritesSection: String,
+    val cardsSection: String,
 )
 
 private val ItalianStrings = Strings(
@@ -89,6 +94,11 @@ private val ItalianStrings = Strings(
     delete = "Cancella",
     addToFavorites = "Aggiungi ai preferiti",
     removeFromFavorites = "Rimuovi dai preferiti",
+    favoritesLimitReached = { max ->
+        "Hai raggiunto il massimo di $max preferiti. Rimuovine uno per aggiungerne un altro."
+    },
+    favoritesSection = "Preferiti",
+    cardsSection = "Carte",
 )
 
 private val EnglishStrings = Strings(
@@ -123,6 +133,11 @@ private val EnglishStrings = Strings(
     delete = "Delete",
     addToFavorites = "Add to favorites",
     removeFromFavorites = "Remove from favorites",
+    favoritesLimitReached = { max ->
+        "You've reached the maximum of $max favorites. Remove one before adding another."
+    },
+    favoritesSection = "Favorites",
+    cardsSection = "Cards",
 )
 
 /** Restituisce il set di stringhe per la [language] scelta. */

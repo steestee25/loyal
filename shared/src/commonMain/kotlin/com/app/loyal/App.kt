@@ -113,12 +113,15 @@ fun App() {
                         screen = Screen.List
                     },
                     onToggleFavorite = {
-                        viewModel.toggleFavorite(current.card)
-                        // Screen.Detail tiene uno snapshot della carta: lo aggiorniamo
-                        // a mano perché il cuore nel menu rifletta subito il nuovo stato.
-                        screen = Screen.Detail(
-                            current.card.copy(isFavorite = !current.card.isFavorite)
-                        )
+                        val applied = viewModel.toggleFavorite(current.card)
+                        if (applied) {
+                            // Screen.Detail tiene uno snapshot della carta: lo aggiorniamo
+                            // a mano perché il cuore nel menu rifletta subito il nuovo stato.
+                            screen = Screen.Detail(
+                                current.card.copy(isFavorite = !current.card.isFavorite)
+                            )
+                        }
+                        applied
                     },
                     onBack = { screen = Screen.List }
                 )

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
@@ -17,6 +18,9 @@ enum class CardSortOrder {
     MostUsed,
     RecentlyViewed
 }
+
+/** Massimo di tessere preferite: la home ne mostra 2 per riga su 2 righe. */
+const val MAX_FAVORITE_CARDS = 4
 
 class CardListViewModel(
     private val repository: LoyaltyCardRepository
@@ -29,18 +33,29 @@ class CardListViewModel(
         repository.observeCards(),
         sortOrderFlow
     ) { cards, sortOrder ->
-        val comparator = when (sortOrder) {
-            CardSortOrder.Alphabetical -> compareBy<LoyaltyCard> { it.brandName.lowercase() }
-            CardSortOrder.MostUsed -> compareByDescending { it.usageCount }
-            CardSortOrder.RecentlyViewed -> compareByDescending { it.lastViewedAt ?: Instant.DISTANT_PAST }
+        // I preferiti non vengono più messi in cima: hanno la loro sezione nella home.
+        when (sortOrder) {
+            CardSortOrder.Alphabetical -> cards.sortedBy { it.brandName.lowercase() }
+            CardSortOrder.MostUsed -> cards.sortedByDescending { it.usageCount }
+            CardSortOrder.RecentlyViewed -> cards.sortedByDescending { it.lastViewedAt ?: Instant.DISTANT_PAST }
         }
-        // I preferiti restano sempre in cima, ordinati fra loro come il resto della lista.
-        cards.sortedWith(compareByDescending<LoyaltyCard> { it.isFavorite }.then(comparator))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    /**
+     * Conteggio dei preferiti, tenuto sempre aggiornato ([SharingStarted.Eagerly]):
+     * il limite va verificato anche dal dettaglio carta, dove [cards] non ha collector.
+     */
+    private val favoriteCount: StateFlow<Int> = repository.observeCards()
+        .map { cards -> cards.count { it.isFavorite } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = 0
+        )
 
     fun setSortOrder(sortOrder: CardSortOrder) {
         sortOrderFlow.value = sortOrder
@@ -52,10 +67,17 @@ class CardListViewModel(
         }
     }
 
-    fun toggleFavorite(card: LoyaltyCard) {
+    /**
+     * Aggiunge o toglie [card] dai preferiti.
+     * Ritorna false — senza modificare nulla — se si sta cercando di aggiungere
+     * un preferito oltre [MAX_FAVORITE_CARDS]; rimuovere è sempre permesso.
+     */
+    fun toggleFavorite(card: LoyaltyCard): Boolean {
+        if (!card.isFavorite && favoriteCount.value >= MAX_FAVORITE_CARDS) return false
         viewModelScope.launch {
             repository.setFavorite(card.id, !card.isFavorite)
         }
+        return true
     }
 
     fun deleteCard(id: String) {

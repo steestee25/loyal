@@ -17,12 +17,16 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,20 +39,29 @@ import androidx.compose.ui.unit.dp
 import com.app.loyal.i18n.LocalStrings
 import com.app.loyal.model.LoyaltyCard
 import com.app.loyal.ui.HeartIcon
+import com.app.loyal.ui.MAX_FAVORITE_CARDS
 import coil3.compose.AsyncImage
 
+/**
+ * [onToggleFavorite] ritorna false quando la carta non può essere aggiunta ai
+ * preferiti perché si è già al limite: in quel caso mostriamo il messaggio.
+ */
 @Composable
 fun CardDetailScreen(
     card: LoyaltyCard,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onToggleFavorite: () -> Unit,
+    onToggleFavorite: () -> Boolean,
     onBack: () -> Unit
 ) {
     val strings = LocalStrings.current
     var menuExpanded by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    Scaffold { padding ->
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -109,7 +122,13 @@ fun CardDetailScreen(
                             },
                             onClick = {
                                 menuExpanded = false
-                                onToggleFavorite()
+                                if (!onToggleFavorite()) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            strings.favoritesLimitReached(MAX_FAVORITE_CARDS)
+                                        )
+                                    }
+                                }
                             },
                             leadingIcon = {
                                 HeartIcon(

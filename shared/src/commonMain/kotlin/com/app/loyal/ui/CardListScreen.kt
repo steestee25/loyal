@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -29,6 +31,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -39,7 +43,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,6 +60,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.app.loyal.i18n.AppLanguage
 import com.app.loyal.i18n.LocalStrings
@@ -92,6 +99,18 @@ fun CardListScreen(
     var selectedTab by remember { mutableStateOf(Tab.Home) }
     var query by remember { mutableStateOf("") }
     var showSortSheet by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Il tap sul cuore viene rifiutato quando si supera il limite: in quel caso
+    // la tessera resta invariata e mostriamo il messaggio.
+    val onFavoriteClick: (LoyaltyCard) -> Unit = { card ->
+        if (!viewModel.toggleFavorite(card)) {
+            scope.launch {
+                snackbarHostState.showSnackbar(strings.favoritesLimitReached(MAX_FAVORITE_CARDS))
+            }
+        }
+    }
 
     val filteredCards = remember(cards, query) {
         val q = query.trim()
@@ -99,7 +118,18 @@ fun CardListScreen(
         else cards.filter { it.brandName.contains(q, ignoreCase = true) }
     }
 
-    Scaffold { padding ->
+    // Sezione "Preferiti": griglia 2x2, quindi al massimo 4 tessere.
+    // Le righe sono precalcolate a coppie per poterle emettere nella LazyColumn.
+    val favoriteRows = remember(filteredCards) {
+        filteredCards.filter { it.isFavorite }.take(MAX_FAVORITE_CARDS).chunked(2)
+    }
+
+    Scaffold(
+        snackbarHost = {
+            // Sollevato per non finire sotto la barra di navigazione flottante.
+            SnackbarHost(snackbarHostState, modifier = Modifier.padding(bottom = 96.dp))
+        }
+    ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (selectedTab) {
                 Tab.Home -> Column(modifier = Modifier.fillMaxSize()) {
@@ -114,6 +144,34 @@ fun CardListScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 100.dp)
                     ) {
+                        if (favoriteRows.isNotEmpty()) {
+                            item { SectionHeader(strings.favoritesSection) }
+                            items(favoriteRows) { row ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    row.forEach { card ->
+                                        FavoriteCardTile(
+                                            card = card,
+                                            onClick = {
+                                                viewModel.recordView(card.id)
+                                                onCardClick(card)
+                                            },
+                                            onFavoriteClick = { onFavoriteClick(card) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    // Con un numero dispari di preferiti l'ultima tessera
+                                    // deve restare a mezza larghezza, non allargarsi.
+                                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+
+                        item { SectionHeader(strings.cardsSection) }
                         items(filteredCards) { card ->
                             LoyaltyCardItem(
                                 card = card,
@@ -121,7 +179,7 @@ fun CardListScreen(
                                     viewModel.recordView(card.id)
                                     onCardClick(card)
                                 },
-                                onFavoriteClick = { viewModel.toggleFavorite(card) }
+                                onFavoriteClick = { onFavoriteClick(card) }
                             )
                         }
                     }
@@ -298,6 +356,76 @@ private fun SortOption(
             CheckIcon(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+/** Titolo di sezione della home ("Preferiti", "Carte"). */
+@Composable
+private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+    )
+}
+
+/**
+ * Tessera compatta della griglia dei preferiti: logo e cuore in alto,
+ * nome e codice sotto. Occupa metà larghezza (weight dal chiamante).
+ */
+@Composable
+private fun FavoriteCardTile(
+    card: LoyaltyCard,
+    onClick: () -> Unit,
+    onFavoriteClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val strings = LocalStrings.current
+
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, loyaltyCardBorderColor(card.colorArgb)),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(
+                    model = card.logoUrl,
+                    contentDescription = card.brandName,
+                    modifier = Modifier.size(36.dp)
+                )
+                Spacer(Modifier.weight(1f))
+                IconButton(
+                    onClick = onFavoriteClick,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    HeartIcon(
+                        filled = card.isFavorite,
+                        color = MaterialTheme.colorScheme.primary,
+                        contentDescription = strings.removeFromFavorites,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = card.label?.takeIf { it.isNotBlank() } ?: card.brandName,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = card.code,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
