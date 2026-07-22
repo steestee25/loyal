@@ -16,9 +16,13 @@ interface LoyaltyCardRepository {
     suspend fun recordView(id: String)
     suspend fun setFavorite(id: String, favorite: Boolean)
 
-    /** true quando l'ultima operazione non ha raggiunto il server. */
+    /**
+     * true dall'ultimo errore di sincronizzazione fino alla prima riuscita.
+     * Resta true per tutta la sessione offline, senza riemettere a ogni
+     * tentativo fallito: la UI può mostrare un solo avviso per episodio.
+     */
     val syncFailed: StateFlow<Boolean>
 
-    /** Da chiamare dopo aver mostrato l'avviso di mancata sincronizzazione. */
-    fun clearSyncFailed()
+    /** Numero di modifiche applicate in locale e non ancora sincronizzate. */
+    val pendingChanges: StateFlow<Int>
 }

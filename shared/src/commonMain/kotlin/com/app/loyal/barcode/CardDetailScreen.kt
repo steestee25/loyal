@@ -42,6 +42,7 @@ import com.app.loyal.i18n.LocalStrings
 import com.app.loyal.model.LoyaltyCard
 import com.app.loyal.ui.HeartIcon
 import com.app.loyal.ui.MAX_FAVORITE_CARDS
+import com.app.loyal.util.BackHandler
 import com.app.loyal.util.KeepScreenBright
 import coil3.compose.AsyncImage
 
@@ -65,6 +66,9 @@ fun CardDetailScreen(
 
     // Il barcode va letto da uno scanner: schermo al massimo e display sempre acceso.
     KeepScreenBright()
+
+    // Con il dialog aperto lasciamo che sia lui a consumare il tasto indietro.
+    BackHandler(enabled = !showDeleteDialog, onBack = onBack)
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }

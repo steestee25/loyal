@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import com.app.loyal.i18n.AppLanguage
 import com.app.loyal.i18n.LocalStrings
 import com.app.loyal.model.LoyaltyCard
+import com.app.loyal.util.BackHandler
 import coil3.compose.AsyncImage
 import io.github.jan.supabase.SupabaseClient
 
@@ -114,12 +115,21 @@ fun CardListScreen(
         }
     }
 
-    // Avviso di mancata sincronizzazione: mostrato una volta per episodio.
+    // Dalle impostazioni il tasto indietro riporta alla home invece di uscire
+    // dall'app; sulla home non lo intercettiamo, così l'app si chiude come atteso.
+    BackHandler(enabled = selectedTab == Tab.Settings && !showSortSheet) {
+        selectedTab = Tab.Home
+    }
+
+    // Un solo avviso per episodio offline: syncFailed resta true finché una
+    // sincronizzazione non riesce, e i tentativi falliti successivi non
+    // riemettono (StateFlow non notifica valori uguali). Lo stato prolungato
+    // è comunicato dal contatore delle modifiche in coda, non dallo snackbar.
+    val pendingChanges by viewModel.pendingChanges.collectAsState()
     val syncFailed by viewModel.syncFailed.collectAsState()
     LaunchedEffect(syncFailed) {
         if (syncFailed) {
             snackbarHostState.showSnackbar(strings.offlineChangesNotSynced)
-            viewModel.clearSyncFailed()
         }
     }
 
@@ -150,6 +160,17 @@ fun CardListScreen(
                         onSortClick = { showSortSheet = true },
                         onProfileClick = { selectedTab = Tab.Settings }
                     )
+
+                    // Coda di sincronizzazione: senza indicatore l'utente non
+                    // saprebbe che le modifiche sono ancora solo sul telefono.
+                    if (pendingChanges > 0) {
+                        Text(
+                            text = strings.pendingChanges(pendingChanges),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                        )
+                    }
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),

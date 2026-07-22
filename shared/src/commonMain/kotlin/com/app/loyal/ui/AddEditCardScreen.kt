@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import com.app.loyal.util.BackHandler
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -97,6 +98,16 @@ fun AddEditCardScreen(
     var note by remember { mutableStateOf(initialCard?.note ?: "") }
 
     val scope = rememberCoroutineScope()
+
+    // Il tasto indietro di sistema segue gli stessi passi del tasto in alto a
+    // sinistra: dai dettagli si torna alla scansione, da lì alla ricerca brand.
+    BackHandler {
+        when (step) {
+            AddStep.Brand -> onCancel()
+            AddStep.Scan -> step = AddStep.Brand
+            AddStep.Details -> if (editing) onCancel() else step = AddStep.Scan
+        }
+    }
 
     when (step) {
         // 1) Ricerca brand: menu con logo + nome che compare sotto il campo

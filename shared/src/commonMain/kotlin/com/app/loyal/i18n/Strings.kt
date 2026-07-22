@@ -71,6 +71,8 @@ data class Strings(
     val cancel: String,
     // Sincronizzazione
     val offlineChangesNotSynced: String,
+    /** Avviso di modifiche in coda; riceve il numero di operazioni. */
+    val pendingChanges: (Int) -> String,
 )
 
 private val ItalianStrings = Strings(
@@ -117,7 +119,11 @@ private val ItalianStrings = Strings(
     deleteCardTitle = "Eliminare la tessera?",
     deleteCardMessage = "La tessera verrà rimossa da tutti i tuoi dispositivi. L'operazione non è reversibile.",
     cancel = "Annulla",
-    offlineChangesNotSynced = "Nessuna connessione: le tessere mostrate potrebbero non essere aggiornate.",
+    offlineChangesNotSynced = "Nessuna connessione: le modifiche sono salvate e verranno sincronizzate più tardi.",
+    pendingChanges = { count ->
+        if (count == 1) "1 modifica in attesa di sincronizzazione"
+        else "$count modifiche in attesa di sincronizzazione"
+    },
 )
 
 private val EnglishStrings = Strings(
@@ -164,7 +170,10 @@ private val EnglishStrings = Strings(
     deleteCardTitle = "Delete this card?",
     deleteCardMessage = "The card will be removed from all your devices. This can't be undone.",
     cancel = "Cancel",
-    offlineChangesNotSynced = "You're offline: the cards shown may be out of date.",
+    offlineChangesNotSynced = "You're offline: your changes are saved and will sync later.",
+    pendingChanges = { count ->
+        if (count == 1) "1 change waiting to sync" else "$count changes waiting to sync"
+    },
 )
 
 /** Restituisce il set di stringhe per la [language] scelta. */

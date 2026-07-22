@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.app.loyal.data.AppPreferences
 import com.app.loyal.data.LoyaltyCardCache
+import com.app.loyal.data.PendingOperationQueue
 import com.app.loyal.data.SupabaseLoyaltyCardRepository
 import com.app.loyal.util.rememberKeyValueStore
 import com.app.loyal.model.LoyaltyCard
@@ -30,6 +31,11 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.CompositionLocalProvider
 import com.app.loyal.i18n.AppLanguage
@@ -79,12 +85,34 @@ fun App() {
                 SupabaseLoyaltyCardRepository(
                     supabase = supabase,
                     userId = userId,
-                    cache = LoyaltyCardCache(keyValueStore, userId)
+                    cache = LoyaltyCardCache(keyValueStore, userId),
+                    outbox = PendingOperationQueue(keyValueStore, userId)
                 )
             }
             val viewModel = remember(repository) { CardListViewModel(repository, preferences) }
 
             LaunchedEffect(userId) { repository.refresh() }
+
+            val pendingChanges by repository.pendingChanges.collectAsState()
+
+            // Tornando in primo piano riproviamo subito: spesso nel frattempo
+            // la connessione è tornata.
+            LifecycleEventEffect(Lifecycle.Event.ON_START) {
+                scope.launch { repository.refresh() }
+            }
+
+            // Finché restano operazioni in coda riproviamo da soli, con attese
+            // crescenti. Senza questo l'avviso di sincronizzazione resterebbe
+            // finché l'utente non modifica qualcos'altro o riapre l'app.
+            LaunchedEffect(userId, pendingChanges > 0) {
+                if (pendingChanges == 0) return@LaunchedEffect
+                var wait = 5.seconds
+                while (true) {
+                    delay(wait)
+                    repository.refresh()
+                    wait = (wait * 2).coerceAtMost(1.minutes)
+                }
+            }
 
             when (val current = screen) {
                 is Screen.List -> CardListScreen(

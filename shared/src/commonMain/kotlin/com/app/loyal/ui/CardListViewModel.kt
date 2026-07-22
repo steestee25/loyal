@@ -35,6 +35,8 @@ class CardListViewModel(
 
     val syncFailed: StateFlow<Boolean> = repository.syncFailed
 
+    val pendingChanges: StateFlow<Int> = repository.pendingChanges
+
     val cards: StateFlow<List<LoyaltyCard>> = combine(
         storedCards,
         sortOrderFlow
@@ -58,10 +60,6 @@ class CardListViewModel(
     fun setSortOrder(sortOrder: CardSortOrder) {
         sortOrderFlow.value = sortOrder
         preferences.sortOrder = sortOrder
-    }
-
-    fun clearSyncFailed() {
-        repository.clearSyncFailed()
     }
 
     fun recordView(id: String) {

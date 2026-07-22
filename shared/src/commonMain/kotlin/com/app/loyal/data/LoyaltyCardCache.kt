@@ -1,65 +1,8 @@
 package com.app.loyal.data
 
-import com.app.loyal.model.BarcodeFormat
 import com.app.loyal.model.LoyaltyCard
 import com.app.loyal.util.KeyValueStore
-import kotlinx.datetime.Instant
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-
-/**
- * Copia locale di una tessera. Le date sono stringhe ISO come nelle righe di
- * Supabase, così non dipendiamo dai serializzatori di Instant.
- */
-@Serializable
-private data class CachedCard(
-    val id: String,
-    val brandName: String,
-    val domain: String,
-    val logoUrl: String? = null,
-    val code: String,
-    val format: String,
-    val colorArgb: Long,
-    val label: String? = null,
-    val note: String? = null,
-    val createdAt: String,
-    val usageCount: Int = 0,
-    val lastViewedAt: String? = null,
-    @SerialName("isFavorite") val isFavorite: Boolean = false
-)
-
-private fun CachedCard.toDomain() = LoyaltyCard(
-    id = id,
-    brandName = brandName,
-    domain = domain,
-    logoUrl = logoUrl,
-    code = code,
-    format = BarcodeFormat.valueOf(format),
-    colorArgb = colorArgb,
-    label = label,
-    note = note,
-    createdAt = Instant.parse(createdAt),
-    usageCount = usageCount,
-    lastViewedAt = lastViewedAt?.let { Instant.parse(it) },
-    isFavorite = isFavorite
-)
-
-private fun LoyaltyCard.toCached() = CachedCard(
-    id = id,
-    brandName = brandName,
-    domain = domain,
-    logoUrl = logoUrl,
-    code = code,
-    format = format.name,
-    colorArgb = colorArgb,
-    label = label,
-    note = note,
-    createdAt = createdAt.toString(),
-    usageCount = usageCount,
-    lastViewedAt = lastViewedAt?.toString(),
-    isFavorite = isFavorite
-)
 
 /**
  * Cache offline delle tessere di un utente. Serve a mostrare i codici a barre
