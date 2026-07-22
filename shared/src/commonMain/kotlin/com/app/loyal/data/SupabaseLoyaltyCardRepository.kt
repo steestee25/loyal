@@ -25,13 +25,19 @@ private data class LoyaltyCardRow(
     val note: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("usage_count") val usageCount: Int = 0,
-    @SerialName("last_viewed_at") val lastViewedAt: String? = null
+    @SerialName("last_viewed_at") val lastViewedAt: String? = null,
+    @SerialName("is_favorite") val isFavorite: Boolean = false
 )
 
 @Serializable
 private data class LoyaltyCardUsageUpdate(
     @SerialName("usage_count") val usageCount: Int,
     @SerialName("last_viewed_at") val lastViewedAt: String
+)
+
+@Serializable
+private data class LoyaltyCardFavoriteUpdate(
+    @SerialName("is_favorite") val isFavorite: Boolean
 )
 
 private fun LoyaltyCardRow.toDomain() = LoyaltyCard(
@@ -46,7 +52,8 @@ private fun LoyaltyCardRow.toDomain() = LoyaltyCard(
     note = note,
     createdAt = Instant.parse(createdAt),
     usageCount = usageCount,
-    lastViewedAt = lastViewedAt?.let { Instant.parse(it) }
+    lastViewedAt = lastViewedAt?.let { Instant.parse(it) },
+    isFavorite = isFavorite
 )
 
 private fun LoyaltyCard.toRow(userId: String) = LoyaltyCardRow(
@@ -62,7 +69,8 @@ private fun LoyaltyCard.toRow(userId: String) = LoyaltyCardRow(
     note = note,
     createdAt = createdAt.toString(),
     usageCount = usageCount,
-    lastViewedAt = lastViewedAt?.toString()
+    lastViewedAt = lastViewedAt?.toString(),
+    isFavorite = isFavorite
 )
 
 class SupabaseLoyaltyCardRepository(
@@ -104,6 +112,16 @@ class SupabaseLoyaltyCardRepository(
                 lastViewedAt = Clock.System.now().toString()
             )
         ) {
+            filter { eq("id", id) }
+        }
+        refresh()
+    }
+
+    override suspend fun setFavorite(id: String, favorite: Boolean) {
+        // Aggiornamento ottimistico: il cuore nella lista deve reagire subito al tap,
+        // senza aspettare il round-trip verso Supabase.
+        cards.value = cards.value.map { if (it.id == id) it.copy(isFavorite = favorite) else it }
+        table.update(LoyaltyCardFavoriteUpdate(isFavorite = favorite)) {
             filter { eq("id", id) }
         }
         refresh()

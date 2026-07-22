@@ -46,6 +46,7 @@ import com.app.loyal.barcode.CardCodeRow
 import com.app.loyal.barcode.ScanCardView
 import com.app.loyal.data.BrandSearchApi
 import com.app.loyal.data.BrandSearchResult
+import com.app.loyal.i18n.LocalStrings
 import com.app.loyal.model.LoyaltyCard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -71,6 +72,7 @@ fun AddEditCardScreen(
     onCancel: () -> Unit,
     initialCard: LoyaltyCard? = null
 ) {
+    val strings = LocalStrings.current
     val editing = initialCard != null
     // In modifica saltiamo direttamente ai dettagli: brand e codice esistono già.
     var step by remember { mutableStateOf(if (editing) AddStep.Details else AddStep.Brand) }
@@ -120,7 +122,7 @@ fun AddEditCardScreen(
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
-                        label = { Text("Cerca brand") },
+                        label = { Text(strings.searchBrand) },
                         singleLine = true,
                         colors = sharedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
@@ -241,7 +243,7 @@ fun AddEditCardScreen(
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         Text(
-                            text = "Dettagli",
+                            text = strings.details,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -251,7 +253,7 @@ fun AddEditCardScreen(
                         OutlinedTextField(
                             value = label,
                             onValueChange = { label = it },
-                            label = { Text("Nome carta") },
+                            label = { Text(strings.cardName) },
                             singleLine = true,
                             colors = sharedTextFieldColors(),
                             modifier = Modifier.fillMaxWidth()
@@ -262,7 +264,7 @@ fun AddEditCardScreen(
                         OutlinedTextField(
                             value = note,
                             onValueChange = { note = it },
-                            label = { Text("Note") },
+                            label = { Text(strings.notes) },
                             colors = sharedTextFieldColors(),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -285,7 +287,13 @@ fun AddEditCardScreen(
                                 label = label.ifBlank { null },
                                 note = note.ifBlank { null },
                                 createdAt = initialCard?.createdAt ?: Clock.System.now(),
-                                logoUrl = logoUrl
+                                logoUrl = logoUrl,
+                                // Il salvataggio fa un upsert dell'intera riga: senza
+                                // riportare questi campi, modificare una carta
+                                // azzererebbe preferito e statistiche d'uso.
+                                usageCount = initialCard?.usageCount ?: 0,
+                                lastViewedAt = initialCard?.lastViewedAt,
+                                isFavorite = initialCard?.isFavorite ?: false
                             )
                         )
                     },
@@ -293,7 +301,7 @@ fun AddEditCardScreen(
                         code.isNotBlank() && format != null,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Salva")
+                    Text(strings.save)
                 }
             }
         }

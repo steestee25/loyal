@@ -9,4 +9,5 @@ interface LoyaltyCardRepository {
     suspend fun update(card: LoyaltyCard)
     suspend fun delete(id: String)
     suspend fun recordView(id: String)
+    suspend fun setFavorite(id: String, favorite: Boolean)
 }

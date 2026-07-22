@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.app.loyal.barcode.BackArrowIcon
+import com.app.loyal.i18n.LocalStrings
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -50,6 +51,7 @@ fun AuthScreen(supabase: SupabaseClient) {
     var error by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val strings = LocalStrings.current
 
     when (step) {
         is AuthStep.Welcome -> WelcomeStep(
@@ -90,7 +92,7 @@ fun AuthScreen(supabase: SupabaseClient) {
                             this.email = email
                             this.password = password
                         }
-                        message = "Registrazione avvenuta. Se la conferma email è attiva su Supabase, controlla la posta prima di accedere."
+                        message = strings.registrationMessage
                     } catch (e: Exception) {
                         error = e.message ?: e.toString()
                     }
@@ -102,6 +104,7 @@ fun AuthScreen(supabase: SupabaseClient) {
 
 @Composable
 private fun WelcomeStep(onAccediClick: () -> Unit) {
+    val strings = LocalStrings.current
     Scaffold { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
@@ -130,7 +133,7 @@ private fun WelcomeStep(onAccediClick: () -> Unit) {
                 onClick = onAccediClick,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Accedi")
+                Text(strings.login)
             }
         }
     }
@@ -169,16 +172,17 @@ private fun EmailStep(
     onBack: () -> Unit,
     onNext: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Scaffold { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp)
         ) {
-            AuthHeader(title = "Inserisci la tua email", onBack = onBack)
+            AuthHeader(title = strings.enterEmailTitle, onBack = onBack)
             Spacer(Modifier.height(32.dp))
             OutlinedTextField(
                 value = email,
                 onValueChange = onEmailChange,
-                label = { Text("Email") },
+                label = { Text(strings.email) },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(16.dp))
@@ -187,7 +191,7 @@ private fun EmailStep(
                 enabled = email.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Avanti")
+                Text(strings.next)
             }
         }
     }
@@ -203,16 +207,17 @@ private fun PasswordStep(
     onLogin: () -> Unit,
     onRegister: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Scaffold { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp)
         ) {
-            AuthHeader(title = "Inserisci la password", onBack = onBack)
+            AuthHeader(title = strings.enterPasswordTitle, onBack = onBack)
             Spacer(Modifier.height(32.dp))
             OutlinedTextField(
                 value = password,
                 onValueChange = onPasswordChange,
-                label = { Text("Password") },
+                label = { Text(strings.password) },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(16.dp))
@@ -221,7 +226,7 @@ private fun PasswordStep(
                 enabled = password.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Accedi")
+                Text(strings.login)
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
@@ -229,7 +234,7 @@ private fun PasswordStep(
                 enabled = password.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Registrati")
+                Text(strings.register)
             }
             error?.let {
                 Spacer(Modifier.height(16.dp))

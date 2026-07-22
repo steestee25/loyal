@@ -14,5 +14,6 @@ data class LoyaltyCard(
     val note: String? = null,
     val createdAt: Instant,
     val usageCount: Int = 0,
-    val lastViewedAt: Instant? = null
+    val lastViewedAt: Instant? = null,
+    val isFavorite: Boolean = false
 )

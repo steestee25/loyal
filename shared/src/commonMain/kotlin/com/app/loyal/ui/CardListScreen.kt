@@ -52,9 +52,14 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.app.loyal.i18n.AppLanguage
+import com.app.loyal.i18n.LocalStrings
 import com.app.loyal.model.LoyaltyCard
 import coil3.compose.AsyncImage
+import io.github.jan.supabase.SupabaseClient
 
 enum class Tab { Home, Settings }
 
@@ -72,11 +77,16 @@ internal fun loyaltyCardBorderColor(colorArgb: Long): Color {
 @Composable
 fun CardListScreen(
     viewModel: CardListViewModel,
+    userEmail: String,
+    supabase: SupabaseClient,
+    language: AppLanguage,
+    onLanguageChange: (AppLanguage) -> Unit,
     onAddClick: () -> Unit,
     onCardClick: (LoyaltyCard) -> Unit,
     onLogoutClick: () -> Unit,
     listState: LazyListState = rememberLazyListState()
 ) {
+    val strings = LocalStrings.current
     val cards by viewModel.cards.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     var selectedTab by remember { mutableStateOf(Tab.Home) }
@@ -110,13 +120,18 @@ fun CardListScreen(
                                 onClick = {
                                     viewModel.recordView(card.id)
                                     onCardClick(card)
-                                }
+                                },
+                                onFavoriteClick = { viewModel.toggleFavorite(card) }
                             )
                         }
                     }
                 }
 
                 Tab.Settings -> SettingsScreen(
+                    userEmail = userEmail,
+                    supabase = supabase,
+                    language = language,
+                    onLanguageChange = onLanguageChange,
                     onLogoutClick = onLogoutClick,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -157,6 +172,7 @@ private fun HomeSearchHeader(
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     Row(
         modifier = modifier.fillMaxWidth().padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -166,7 +182,7 @@ private fun HomeSearchHeader(
             value = query,
             onValueChange = onQueryChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Cerca in Loyal") },
+            placeholder = { Text(strings.searchPlaceholder) },
             singleLine = true,
             shape = RoundedCornerShape(50),
             trailingIcon = {
@@ -202,6 +218,7 @@ private fun SortOrderBottomSheet(
     onSelected: (CardSortOrder) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalStrings.current
     val sheetState = rememberModalBottomSheetState()
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -212,7 +229,7 @@ private fun SortOrderBottomSheet(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text(
-                text = "Ordina per",
+                text = strings.sortBy,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
             )
@@ -221,17 +238,17 @@ private fun SortOrderBottomSheet(
                 modifier = Modifier.padding(horizontal = 24.dp).padding(top = 8.dp, bottom = 8.dp)
             )
             SortOption(
-                label = "Ordine alfabetico",
+                label = strings.sortAlphabetical,
                 selected = selected == CardSortOrder.Alphabetical,
                 onClick = { onSelected(CardSortOrder.Alphabetical) }
             )
             SortOption(
-                label = "Più usati",
+                label = strings.sortMostUsed,
                 selected = selected == CardSortOrder.MostUsed,
                 onClick = { onSelected(CardSortOrder.MostUsed) }
             )
             SortOption(
-                label = "Visti di recente",
+                label = strings.sortRecentlyViewed,
                 selected = selected == CardSortOrder.RecentlyViewed,
                 onClick = { onSelected(CardSortOrder.RecentlyViewed) }
             )
@@ -290,8 +307,10 @@ private fun SortOption(
 internal fun LoyaltyCardItem(
     card: LoyaltyCard,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onFavoriteClick: (() -> Unit)? = null
 ) {
+    val strings = LocalStrings.current
     val borderColor = loyaltyCardBorderColor(card.colorArgb)
 
     Card(
@@ -313,9 +332,24 @@ internal fun LoyaltyCardItem(
                 contentDescription = card.brandName,
                 modifier = Modifier.size(48.dp)
             )
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(card.brandName)
                 Text(card.code)
+            }
+
+            if (onFavoriteClick != null) {
+                IconButton(onClick = onFavoriteClick) {
+                    HeartIcon(
+                        filled = card.isFavorite,
+                        color =
+                            if (card.isFavorite) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        contentDescription =
+                            if (card.isFavorite) strings.removeFromFavorites
+                            else strings.addToFavorites,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
     }
@@ -328,6 +362,7 @@ private fun FloatingNavBar(
     onAddClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -345,12 +380,12 @@ private fun FloatingNavBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 NavItem(
-                    label = "Home",
+                    label = strings.navHome,
                     selected = selectedTab == Tab.Home,
                     onClick = { onTabSelected(Tab.Home) }
                 )
                 NavItem(
-                    label = "Impostazioni",
+                    label = strings.navSettings,
                     selected = selectedTab == Tab.Settings,
                     onClick = { onTabSelected(Tab.Settings) }
                 )
@@ -502,7 +537,7 @@ private fun SortIcon(color: Color, modifier: Modifier = Modifier) {
 
 /** Icona profilo: testa (cerchio) e spalle (arco), disegnata a mano con Canvas. */
 @Composable
-private fun ProfileIcon(color: Color, modifier: Modifier = Modifier) {
+internal fun ProfileIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val stroke = 2.dp.toPx()
         val w = size.width
@@ -526,6 +561,48 @@ private fun ProfileIcon(color: Color, modifier: Modifier = Modifier) {
             size = Size(shoulderRadius * 2, shoulderRadius * 2),
             style = Stroke(width = stroke, cap = StrokeCap.Round)
         )
+    }
+}
+
+/**
+ * Cuore dei preferiti, disegnato a mano con Canvas.
+ * [filled] = preferito (cuore pieno), altrimenti solo il contorno.
+ */
+@Composable
+internal fun HeartIcon(
+    filled: Boolean,
+    color: Color,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null
+) {
+    Canvas(
+        modifier = modifier.semantics {
+            contentDescription?.let { this.contentDescription = it }
+        }
+    ) {
+        val w = size.width
+        val h = size.height
+
+        // Due archi in alto che si incontrano al centro, poi i due fianchi che
+        // scendono a punta sul fondo.
+        val path = Path().apply {
+            moveTo(w * 0.5f, h * 0.88f)
+            cubicTo(w * 0.5f, h * 0.88f, w * 0.04f, h * 0.56f, w * 0.04f, h * 0.34f)
+            cubicTo(w * 0.04f, h * 0.10f, w * 0.36f, h * 0.04f, w * 0.5f, h * 0.28f)
+            cubicTo(w * 0.64f, h * 0.04f, w * 0.96f, h * 0.10f, w * 0.96f, h * 0.34f)
+            cubicTo(w * 0.96f, h * 0.56f, w * 0.5f, h * 0.88f, w * 0.5f, h * 0.88f)
+            close()
+        }
+
+        if (filled) {
+            drawPath(path = path, color = color)
+        } else {
+            drawPath(
+                path = path,
+                color = color,
+                style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+        }
     }
 }
 

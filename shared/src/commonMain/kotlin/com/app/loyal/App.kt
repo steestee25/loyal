@@ -28,6 +28,10 @@ import io.github.jan.supabase.auth.status.SessionStatus
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.CompositionLocalProvider
+import com.app.loyal.i18n.AppLanguage
+import com.app.loyal.i18n.LocalStrings
+import com.app.loyal.i18n.stringsFor
 import com.app.loyal.ui.AuthScreen
 
 sealed class Screen {
@@ -48,6 +52,7 @@ fun App() {
     val scope = rememberCoroutineScope()
 
     var screen by remember { mutableStateOf<Screen>(Screen.List) }
+    var language by remember { mutableStateOf(AppLanguage.Italian) }
     val cardListState = rememberLazyListState()
 
     setSingletonImageLoaderFactory { context ->
@@ -56,8 +61,11 @@ fun App() {
             .build()
     }
     MaterialTheme {
+      CompositionLocalProvider(LocalStrings provides stringsFor(language)) {
         val status = sessionStatus
-        val userId = (status as? SessionStatus.Authenticated)?.session?.user?.id
+        val user = (status as? SessionStatus.Authenticated)?.session?.user
+        val userId = user?.id
+        val userEmail = user?.email ?: ""
 
         if (userId != null) {
             val repository = remember(userId) { SupabaseLoyaltyCardRepository(supabase, userId) }
@@ -68,6 +76,10 @@ fun App() {
             when (val current = screen) {
                 is Screen.List -> CardListScreen(
                     viewModel = viewModel,
+                    userEmail = userEmail,
+                    supabase = supabase,
+                    language = language,
+                    onLanguageChange = { language = it },
                     onAddClick = { screen = Screen.AddCard },
                     onCardClick = { card -> screen = Screen.Detail(card) },
                     onLogoutClick = {
@@ -100,11 +112,20 @@ fun App() {
                         viewModel.deleteCard(current.card.id)
                         screen = Screen.List
                     },
+                    onToggleFavorite = {
+                        viewModel.toggleFavorite(current.card)
+                        // Screen.Detail tiene uno snapshot della carta: lo aggiorniamo
+                        // a mano perché il cuore nel menu rifletta subito il nuovo stato.
+                        screen = Screen.Detail(
+                            current.card.copy(isFavorite = !current.card.isFavorite)
+                        )
+                    },
                     onBack = { screen = Screen.List }
                 )
             }
         } else {
             AuthScreen(supabase = supabase)
         }
+      }
     }
 }

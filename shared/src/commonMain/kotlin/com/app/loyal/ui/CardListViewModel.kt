@@ -29,11 +29,13 @@ class CardListViewModel(
         repository.observeCards(),
         sortOrderFlow
     ) { cards, sortOrder ->
-        when (sortOrder) {
-            CardSortOrder.Alphabetical -> cards.sortedBy { it.brandName.lowercase() }
-            CardSortOrder.MostUsed -> cards.sortedByDescending { it.usageCount }
-            CardSortOrder.RecentlyViewed -> cards.sortedByDescending { it.lastViewedAt ?: Instant.DISTANT_PAST }
+        val comparator = when (sortOrder) {
+            CardSortOrder.Alphabetical -> compareBy<LoyaltyCard> { it.brandName.lowercase() }
+            CardSortOrder.MostUsed -> compareByDescending { it.usageCount }
+            CardSortOrder.RecentlyViewed -> compareByDescending { it.lastViewedAt ?: Instant.DISTANT_PAST }
         }
+        // I preferiti restano sempre in cima, ordinati fra loro come il resto della lista.
+        cards.sortedWith(compareByDescending<LoyaltyCard> { it.isFavorite }.then(comparator))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -47,6 +49,12 @@ class CardListViewModel(
     fun recordView(id: String) {
         viewModelScope.launch {
             repository.recordView(id)
+        }
+    }
+
+    fun toggleFavorite(card: LoyaltyCard) {
+        viewModelScope.launch {
+            repository.setFavorite(card.id, !card.isFavorite)
         }
     }
 

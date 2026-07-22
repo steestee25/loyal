@@ -32,7 +32,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.app.loyal.i18n.LocalStrings
 import com.app.loyal.model.LoyaltyCard
+import com.app.loyal.ui.HeartIcon
 import coil3.compose.AsyncImage
 
 @Composable
@@ -40,8 +42,10 @@ fun CardDetailScreen(
     card: LoyaltyCard,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onToggleFavorite: () -> Unit,
     onBack: () -> Unit
 ) {
+    val strings = LocalStrings.current
     var menuExpanded by remember { mutableStateOf(false) }
 
     Scaffold { padding ->
@@ -97,7 +101,28 @@ fun CardDetailScreen(
                         onDismissRequest = { menuExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Modifica") },
+                            text = {
+                                Text(
+                                    if (card.isFavorite) strings.removeFromFavorites
+                                    else strings.addToFavorites
+                                )
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onToggleFavorite()
+                            },
+                            leadingIcon = {
+                                HeartIcon(
+                                    filled = card.isFavorite,
+                                    color =
+                                        if (card.isFavorite) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(strings.edit) },
                             onClick = {
                                 menuExpanded = false
                                 onEdit()
@@ -110,7 +135,7 @@ fun CardDetailScreen(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Cancella") },
+                            text = { Text(strings.delete) },
                             onClick = {
                                 menuExpanded = false
                                 onDelete()
